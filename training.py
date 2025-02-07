@@ -80,7 +80,7 @@ def execute_plan(game, plan):
         if(len(plan) > 0):
             action = plan.pop()
             # print("Action: ", action)
-            time.sleep(1)
+            # time.sleep(1)
         else:
             break
     return initialize_level(game)  # Example resulting state
