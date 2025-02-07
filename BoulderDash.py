@@ -58,6 +58,8 @@ class BoulderDash:
 
         self.score = 0
         self.player = None
+        self.collecting = None
+        self.collected = []
         w, h = GRID_SIZE, GRID_SIZE
         self.grid = [[0 for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
         for x in range(len(self.grid)):
@@ -144,8 +146,7 @@ class BoulderDash:
         else:
             self.plan = []
             with open("problem.pddl", "w") as f:
-                diamondsNum = self.count_diamonds()
-                diamondRandomIndex = random.randrange(1, diamondsNum)
+                diamondRandomIndex = self.choosed_subgoal()
                 print('Going to ', diamondRandomIndex)
                 f.write(game.get_problem(diamondRandomIndex))
 
@@ -175,7 +176,7 @@ class BoulderDash:
 
         # 6. return game over and score
 
-        # time.sleep(1)
+        time.sleep(.5)
         return game_over, self.score
 
     def _check_collisions(self,x ,y):
@@ -184,6 +185,7 @@ class BoulderDash:
             self.grid[x][y] = Tiles.EMPTY
         elif tile == Tiles.GEM:
             self.grid[x][y] = Tiles.EMPTY
+            self.collected.append((x,y))
             self.score += 1
 
     def _is_collisions(self, newPlayer):
@@ -263,6 +265,7 @@ class BoulderDash:
 
         text = font.render("Score: " + str(self.score), True, WHITE)
         self.display.blit(text, [0, 0])
+
         for x in range(len(self.gems)):
             text = font.render(str(x), True, WHITE)
             self.display.blit(text, [self.gems[x][1] * BLOCK_SIZE, self.gems[x][0] * BLOCK_SIZE])
@@ -371,8 +374,11 @@ class BoulderDash:
 
         return pddl
 
-    def get_subgoals(self):
-        return 0
+    def choosed_subgoal(self):
+        remainingGems = [item for item in self.gems if item not in self.collected]
+        remainingGemsIndex = random.randrange(1, len(remainingGems))
+        diamondRandomIndex = self.gems.index(remainingGems[remainingGemsIndex])
+        return diamondRandomIndex
 
 if __name__ == '__main__':
     game = BoulderDash()
