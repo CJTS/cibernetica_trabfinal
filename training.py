@@ -6,6 +6,7 @@ from tensorflow.keras.layers import Conv2D, Dense, Flatten, MaxPooling2D
 import BoulderDash
 import ctypes
 import ff
+import copy
 
 # Constants
 data_per_level = 500  # Unique samples per level
@@ -17,8 +18,8 @@ input_shape = (30, 30, 7)  # Assuming 30x30 grid with a single channel
 def initialize_level(game):
     """Initialize a level and return its initial state."""
     tensor = np.zeros((BoulderDash.GRID_SIZE, BoulderDash.GRID_SIZE, 7), dtype=np.float32)
-    subgoals = []
-    gemsIndex = 1
+    # subgoals = []
+    # gemsIndex = 0
 
     # Populate the tensor
     for x in range(BoulderDash.GRID_SIZE):
@@ -27,16 +28,13 @@ def initialize_level(game):
             if tile_type != BoulderDash.Tiles.EMPTY:
                 # Set the corresponding position in the tensor to 1
                 tensor[x][y][tile_type.value - 1] = 1
-            if tile_type == BoulderDash.Tiles.GEM:
-                subgoals.append(gemsIndex)
-                gemsIndex += 1
     game._update_ui()
     # Replace with actual level initialization logic
-    return tensor, subgoals  # state, list of eligible subgoals
+    return tensor, game.subgoals()  # state, list of eligible subgoals
 
-def select_random_subgoal(subgoals):
+def select_random_subgoal(game):
     """Randomly select an eligible subgoal."""
-    return random.choice(subgoals)
+    return game.choosed_subgoal()
 
 def find_plan(game, subgoal):
     """Find a plan from the current state to the given subgoal."""
@@ -44,7 +42,7 @@ def find_plan(game, subgoal):
     plan = []
     with open("problem.pddl", "w") as f:
         f.write(game.get_problem(subgoal))
-    plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./boulder_dash_domain.pddl", b"-i", b"0"))
+    plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
     plan = []
     i = 0
     attainable = False
@@ -52,7 +50,6 @@ def find_plan(game, subgoal):
         attainable = True
         plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
         i += 1
-    plan.reverse()
 
     return plan, attainable
 
@@ -60,15 +57,7 @@ def execute_plan(game, plan):
     """Execute a plan and return the resulting state."""
     action = plan.pop()
     while action:
-        if action == "FACE-UP":
-            game.direction = BoulderDash.Direction.UP
-        elif action == "FACE-DOWN":
-            game.direction = BoulderDash.Direction.DOWN
-        elif action == "FACE-RIGHT":
-            game.direction = BoulderDash.Direction.RIGHT
-        elif action == "FACE-LEFT":
-            game.direction = BoulderDash.Direction.LEFT
-        elif action == "MOVE-UP":
+        if action == "MOVE-UP":
             game._move(BoulderDash.Direction.UP)
         elif action == "MOVE-DOWN":
             game._move(BoulderDash.Direction.DOWN)
@@ -76,26 +65,14 @@ def execute_plan(game, plan):
             game._move(BoulderDash.Direction.RIGHT)
         elif action == "MOVE-LEFT":
             game._move(BoulderDash.Direction.LEFT)
-        elif action == "COLLECT-DIAMOND-UP":
-            game._move(BoulderDash.Direction.UP)
-        elif action == "COLLECT-DIAMOND-DOWN":
-            game._move(BoulderDash.Direction.DOWN)
-        elif action == "COLLECT-DIAMOND-RIGHT":
-            game._move(BoulderDash.Direction.RIGHT)
-        elif action == "COLLECT-DIAMOND-LEFT":
-            game._move(BoulderDash.Direction.LEFT)
-        elif action == "DIG-UP":
-            game._move(BoulderDash.Direction.UP)
-        elif action == "DIG-DOWN":
-            game._move(BoulderDash.Direction.DOWN)
-        elif action == "DIG-RIGHT":
-            game._move(BoulderDash.Direction.RIGHT)
-        elif action == "DIG-LEFT":
-            game._move(BoulderDash.Direction.LEFT)
-        elif action == "PUSH-ROCK-RIGHT":
-            game._move(BoulderDash.Direction.RIGHT)
-        elif action == "PUSH-ROCK-LEFT":
-            game._move(BoulderDash.Direction.LEFT)
+        elif action == "USE-UP":
+            game._use()
+        elif action == "USE-DOWN":
+            game._use()
+        elif action == "USE-LEFT":
+            game._use()
+        elif action == "USE-RIGHT":
+            game._use()
         game.play_step()
         if(len(plan) > 0):
             action = plan.pop()
@@ -112,32 +89,42 @@ def collect_samples(game):
     for level_id in range(levels):
         print("Level: ", level_id)
         level_samples = 0
+        state, subgoals = initialize_level(game)
+        init_grid = copy.deepcopy(game.grid)
+        init_player = game.player
+
         while level_samples < data_per_level:
             print("Data in level: ", level_samples)
-            state, subgoals = initialize_level(game)
+            game.reset_game(init_grid, init_player)
 
             if not subgoals:
                 break  # Skip if no subgoals available
 
             while subgoals:
-                subgoal = select_random_subgoal(subgoals)
+                subgoal = select_random_subgoal(game)
                 print("subgoal", subgoal)
-                plan, attainable = find_plan(game, subgoal)
 
-                if attainable:
-                    planLength = len(plan)
-                    next_state = execute_plan(game, plan)
-                    sample = (state, subgoal, planLength, next_state)
-                    dataset.append(sample)
-                    level_samples += 1
+                if subgoal != None:
+                    plan, attainable = find_plan(game, subgoal)
+                    print("plan: ", plan)
 
-                    state = next_state  # Update state
+                    if attainable:
+                        planLength = len(plan)
+                        next_state = execute_plan(game, plan)
+                        sample = (state, subgoal, planLength, next_state)
+                        dataset.append(sample)
+                        level_samples += 1
+
+                        state = next_state  # Update state
+                    else:
+                        sample = (state, subgoal, 0, None)
+                        dataset.append(sample)
+                        level_samples += 1
+
+                    if level_samples >= data_per_level:
+                        break
                 else:
-                    sample = (state, subgoal, 0, None)
-                    dataset.append(sample)
-                    level_samples += 1
-
-                if level_samples >= data_per_level:
+                    print("Finished level, starting again.")
                     break
 
     return dataset[:total_samples]
