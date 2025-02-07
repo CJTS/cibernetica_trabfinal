@@ -18,7 +18,7 @@ def close(lib):
     close_cdll(lib)
 
 def plan(args):
-    _ff = ctypes.CDLL('./FF-v2.3 3/ff')
+    _ff = ctypes.CDLL('./FF-v2.3/ff')
     _ff.main.restype = ctypes.POINTER(ctypes.c_char_p)
     _ff.main.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_char_p))
     _ff.free_memory.argtypes = [ctypes.POINTER(ctypes.c_char_p)]

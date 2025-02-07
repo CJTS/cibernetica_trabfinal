@@ -1,4 +1,5 @@
 import random
+import time
 import ctypes
 import pygame
 import random
@@ -75,8 +76,8 @@ class BoulderDash:
         while((x,y) in self.gems):
             x = random.randint(0, (self.w - BLOCK_SIZE) // BLOCK_SIZE)
             y = random.randint(0, (self.h - BLOCK_SIZE) // BLOCK_SIZE)
-        self.grid[x][y] = Tiles.PLAYER
-        self.player = Point(x, y)
+        self.grid[0][0] = Tiles.PLAYER
+        self.player = Point(0, 0)
 
     def _place_dirt(self):
         for _ in range(DIRT_NUM):
@@ -107,84 +108,58 @@ class BoulderDash:
                 pygame.quit()
                 quit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT and self.direction == Direction.LEFT:
-                    self._move(self.direction)
-                elif event.key == pygame.K_LEFT and not self.direction == Direction.LEFT:
-                    self.direction = Direction.LEFT
-                elif event.key == pygame.K_RIGHT and self.direction == Direction.RIGHT:
-                    self._move(self.direction)
-                elif event.key == pygame.K_RIGHT and not self.direction == Direction.RIGHT:
-                    self.direction = Direction.RIGHT
-                elif event.key == pygame.K_UP and self.direction == Direction.UP:
-                    self._move(self.direction)
-                elif event.key == pygame.K_UP and not self.direction == Direction.UP:
-                    self.direction = Direction.UP
-                elif event.key == pygame.K_DOWN and self.direction == Direction.DOWN:
-                    self._move(self.direction)
-                elif event.key == pygame.K_DOWN and not self.direction == Direction.DOWN:
-                    self.direction = Direction.DOWN
+                if event.key == pygame.K_LEFT:
+                    self._move(Direction.LEFT)
+                elif event.key == pygame.K_RIGHT:
+                    self._move(Direction.RIGHT)
+                elif event.key == pygame.K_UP:
+                    self._move(Direction.UP)
+                elif event.key == pygame.K_DOWN:
+                    self._move(Direction.DOWN)
+                elif event.key == pygame.K_RETURN:
+                    self._use()
                 elif event.key == pygame.K_ESCAPE:
                     game_over = True
 
         # AI Planner
-        # if(len(self.plan) > 0):
-        #     action = self.plan.pop()
-        #     # print("\nAction: ", action)
-        #     if action == "FACE-UP":
-        #         self.direction = Direction.UP
-        #     elif action == "FACE-DOWN":
-        #         self.direction = Direction.DOWN
-        #     elif action == "FACE-RIGHT":
-        #         self.direction = Direction.RIGHT
-        #     elif action == "FACE-LEFT":
-        #         self.direction = Direction.LEFT
-        #     elif action == "MOVE-UP":
-        #         self._move(Direction.UP)
-        #     elif action == "MOVE-DOWN":
-        #         self._move(Direction.DOWN)
-        #     elif action == "MOVE-RIGHT":
-        #         self._move(Direction.RIGHT)
-        #     elif action == "MOVE-LEFT":
-        #         self._move(Direction.LEFT)
-        #     elif action == "COLLECT-DIAMOND-UP":
-        #         self._move(Direction.UP)
-        #     elif action == "COLLECT-DIAMOND-DOWN":
-        #         self._move(Direction.DOWN)
-        #     elif action == "COLLECT-DIAMOND-RIGHT":
-        #         self._move(Direction.RIGHT)
-        #     elif action == "COLLECT-DIAMOND-LEFT":
-        #         self._move(Direction.LEFT)
-        #     elif action == "DIG-UP":
-        #         self._move(Direction.UP)
-        #     elif action == "DIG-DOWN":
-        #         self._move(Direction.DOWN)
-        #     elif action == "DIG-RIGHT":
-        #         self._move(Direction.RIGHT)
-        #     elif action == "DIG-LEFT":
-        #         self._move(Direction.LEFT)
-        #     elif action == "PUSH-ROCK-RIGHT":
-        #         self._move(Direction.RIGHT)
-        #     elif action == "PUSH-ROCK-LEFT":
-        #         self._move(Direction.LEFT)
-        # else:
-        #     self.plan = []
-        #     with open("problem.pddl", "w") as f:
-        #         diamondsNum = self.count_diamonds()
-        #         diamondRandomIndex = random.randrange(1, diamondsNum)
-        #         print('Going to ', diamondRandomIndex)
-        #         f.write(game.get_problem(diamondRandomIndex))
+        if(len(self.plan) > 0):
+            action = self.plan.pop()
+            print("Action: ", action)
+            if action == "MOVE-UP":
+                self._move(Direction.UP)
+            elif action == "MOVE-DOWN":
+                self._move(Direction.DOWN)
+            elif action == "MOVE-RIGHT":
+                self._move(Direction.RIGHT)
+            elif action == "MOVE-LEFT":
+                self._move(Direction.LEFT)
+            elif action == "USE-UP":
+                self._use()
+            elif action == "USE-DOWN":
+                self._use()
+            elif action == "USE-LEFT":
+                self._use()
+            elif action == "USE-RIGHT":
+                self._use()
+        else:
+            self.plan = []
+            with open("problem.pddl", "w") as f:
+                diamondsNum = self.count_diamonds()
+                diamondRandomIndex = random.randrange(1, diamondsNum)
+                print('Going to ', diamondRandomIndex)
+                f.write(game.get_problem(diamondRandomIndex))
 
-            # try:
-            # plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./boulder_dash_domain.pddl", b"-i", b"0"))
-            # self.plan = []
-            # i = 0
-            # while plan_result[i]:
-            #     self.plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
-            #     i += 1
-            # self.plan.reverse()
-            # finally:
-                # ff.free_memory(plan_result)
-                # ff.close()
+            print("Planning")
+            plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
+            print("Finished Planning")
+
+            i = 0
+            print("Plan: ", plan_result)
+            while plan_result[i]:
+                self.plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
+                i += 1
+            self.plan.reverse()
+            # print(self.plan)
 
         # 3. check collisions
         # self._check_collisions()
@@ -235,29 +210,43 @@ class BoulderDash:
             self.grid[newPlayer.x][newPlayer.y] = Tiles.EMPTY
 
     def _move(self, direction):
-        x = self.player.x
-        y = self.player.y
-        if direction == Direction.RIGHT:
-            y += 1
-        elif direction == Direction.LEFT:
-            y -= 1
-        elif direction == Direction.DOWN:
-            x += 1
-        elif direction == Direction.UP:
-            x -= 1
+        if self.direction == direction:
+            x = self.player.x
+            y = self.player.y
+            if direction == Direction.RIGHT:
+                y += 1
+            elif direction == Direction.LEFT:
+                y -= 1
+            elif direction == Direction.DOWN:
+                x += 1
+            elif direction == Direction.UP:
+                x -= 1
 
-        newPlayer = Point(x, y)
-        if(self._is_collisions(newPlayer)):
-            if(self.can_push_boulder(newPlayer, direction)):
-                self.push_boulder(newPlayer, direction)
-            else:
-                return
+            newPlayer = Point(x, y)
+            if(self._is_collisions(newPlayer)):
+                if(self.can_push_boulder(newPlayer, direction)):
+                    self.push_boulder(newPlayer, direction)
+                else:
+                    return
 
-        self.player = newPlayer
-        self._check_collisions(x, y)
-        self.grid[x][y] = Tiles.PLAYER
+            self.player = newPlayer
+            self._check_collisions(x, y)
+            self.grid[x][y] = Tiles.PLAYER
+        else:
+            self.direction = direction
+
+    def _use(self):
+        if(self.direction == Direction.UP and self.grid[self.player.x - 1][self.player.y] == Tiles.BOULDER):
+            self.grid[self.player.x - 1][self.player.y] = Tiles.EMPTY
+        elif(self.direction == Direction.DOWN and self.grid[self.player.x + 1][self.player.y] == Tiles.BOULDER):
+            self.grid[self.player.x + 1][self.player.y] = Tiles.EMPTY
+        elif(self.direction == Direction.LEFT and self.grid[self.player.x][self.player.y - 1] == Tiles.BOULDER):
+            self.grid[self.player.x][self.player.y - 1] = Tiles.EMPTY
+        elif(self.direction == Direction.RIGHT and self.grid[self.player.x][self.player.y + 1] == Tiles.BOULDER):
+            self.grid[self.player.x][self.player.y + 1] = Tiles.EMPTY
 
     def _update_ui(self):
+        gemindex = 0
         self.display.fill(BLACK)
 
         for x in range(len(self.grid)):
@@ -268,11 +257,16 @@ class BoulderDash:
                     pygame.draw.rect(self.display, BOULDER, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
                 elif self.grid[x][y] == Tiles.GEM:
                     pygame.draw.rect(self.display, GEM, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                    gemindex += 1
 
         pygame.draw.rect(self.display, RED, pygame.Rect(self.player.y  * BLOCK_SIZE, self.player.x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
 
         text = font.render("Score: " + str(self.score), True, WHITE)
         self.display.blit(text, [0, 0])
+        for x in range(len(self.gems)):
+            text = font.render(str(x), True, WHITE)
+            self.display.blit(text, [self.gems[x][1] * BLOCK_SIZE, self.gems[x][0] * BLOCK_SIZE])
+
         pygame.display.flip()
 
     def count_diamonds(self):
@@ -292,7 +286,7 @@ class BoulderDash:
         pddl += "- gem\n"
         return pddl
 
-    def get_rocks(self):
+    def get_boulders(self):
         pddl = "    "
         index = 1
         for x in range(len(self.grid)):
@@ -300,7 +294,7 @@ class BoulderDash:
                 if self.grid[x][y] == Tiles.BOULDER:
                     pddl += "r" + str(index) + " "
                     index += 1
-        pddl += "- rock\n"
+        pddl += "- boulder\n"
         return pddl
 
     def get_cells(self):
@@ -324,25 +318,28 @@ class BoulderDash:
                 if self.grid[x][y] == Tiles.BOULDER:
                     pddl += "(at r" + str(indexBoulder) + " c_" + str(x) + "_" + str(y) + ")\n    "
                     indexBoulder += 1
-                elif self.grid[x][y] == Tiles.GEM:
-                    pddl += "(at gem" + str(indexGems) + " c_" + str(x) + "_" + str(y) + ")\n    "
-                    indexGems += 1
-                elif self.grid[x][y] == Tiles.DIRT:
-                    pddl += "(at d" + str(indexDirt) + " c_" + str(x) + "_" + str(y) + ")\n    "
-                    indexDirt += 1
+                # elif self.grid[x][y] == Tiles.GEM:
+                #     pddl += "(at gem" + str(indexGems) + " c_" + str(x) + "_" + str(y) + ")\n    "
+                #     indexGems += 1
+                # elif self.grid[x][y] == Tiles.DIRT:
+                #     pddl += "(at d" + str(indexDirt) + " c_" + str(x) + "_" + str(y) + ")\n    "
+                #     indexDirt += 1
                 elif self.grid[x][y] == Tiles.EMPTY:
-                    pddl += "(empty c_" + str(x) + "_" + str(y) + ")\n    "
+                    pddl += "(terrain-empty c_" + str(x) + "_" + str(y) + ")\n    "
+
+        for x in range(len(self.gems)):
+            pddl += "(at gem" + str(x) + " c_" + str(self.gems[x][0]) + "_" + str(self.gems[x][1]) + ")\n    "
 
         for x in range(len(self.grid)):
             for y in range(len(self.grid[x])):
                 if(x > 0):
-                    pddl += "(adjacent-up c_" + str(x) + "_" + str(y + 1) + " c_" + str(x - 1) + "_" + str(y + 1) + ")\n    "
+                    pddl += "(connected-up c_" + str(x) + "_" + str(y) + " c_" + str(x - 1) + "_" + str(y) + ")\n    "
                 if(x < GRID_SIZE - 1):
-                    pddl += "(adjacent-down c_" + str(x) + "_" + str(y + 1) + " c_" + str(x + 1) + "_" + str(y + 1) + ")\n    "
+                    pddl += "(connected-down c_" + str(x) + "_" + str(y) + " c_" + str(x + 1) + "_" + str(y) + ")\n    "
                 if(y > 0):
-                    pddl += "(adjacent-left c_" + str(x) + "_" + str(y + 1) + " c_" + str(x) + "_" + str(y) + ")\n    "
+                    pddl += "(connected-left c_" + str(x) + "_" + str(y) + " c_" + str(x) + "_" + str(y - 1) + ")\n    "
                 if(y < GRID_SIZE - 1):
-                    pddl += "(adjacent-right c_" + str(x) + "_" + str(y + 1) + " c_" + str(x) + "_" + str(y + 2) + ")\n    "
+                    pddl += "(connected-right c_" + str(x) + "_" + str(y) + " c_" + str(x) + "_" + str(y + 1) + ")\n    "
         return pddl
 
     def get_problem(self, dIndex = 1):
@@ -354,19 +351,19 @@ class BoulderDash:
     p1 - player
 """
         pddl += self.get_gems()
-        pddl += self.get_rocks()
+        pddl += self.get_boulders()
         pddl += self.get_cells()
         pddl += """  )\n
   ;; Initial State
   (:init
-    (faced-right p1)\n"""
+    (oriented-right p1)\n"""
         pddl += self.get_state()
         pddl += ")\n\n"
         pddl += """  ;; Goal State
   (:goal
     (and
     """
-        pddl += "  (collected gem" + str(dIndex) + ")"
+        pddl += "  (got gem" + str(dIndex) + ")"
         pddl += """
      )
    )
@@ -381,22 +378,22 @@ if __name__ == '__main__':
     game = BoulderDash()
 
     # game loop
-    # while True:
-    #     game_over, score = game.play_step()
+    while True:
+        game_over, score = game.play_step()
 
-    #     if game_over == True:
-    #         break
-    game_over, score = game.play_step()
-    print("planning")
-    with open("problem1.pddl", "w") as f:
-        f.write(game.get_problem())
-    plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem1.pddl", b"-o", b"./boulder_dash_domain.pddl", b"-i", b"0"))
-    print("plan result", plan_result)
-    if plan_result:
-        for action in plan_result:
-            if(action == None):
-                break
-            print(action)
+        if game_over == True:
+            break
+    # game_over, score = game.play_step()
+    # print("planning")
+    # with open("problem.pddl", "w") as f:
+    #     f.write(game.get_problem())
+    # plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
+    # print("plan result", plan_result)
+    # if plan_result:
+    #     for action in plan_result:
+    #         if(action == None):
+    #             break
+    #         print(action)
 
 
     print('Final Score', score)

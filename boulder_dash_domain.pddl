@@ -1,14 +1,15 @@
 (define (domain boulder_dash)
   (:requirements :strips :typing)
-  (:types player gem rock cell)
+  (:types 
+    locatable - object
+    player gem rock dirt - locatable
+    cell - place
+  )
   ; (:constants up down left right - orientation)
 
   ;; Predicates
   (:predicates
-    (at ?p - player ?c - cell)            ;; Player is at a cell
-    (gem-at ?d - gem ?c - cell)   ;; A gem is at a cell
-    (rock-at ?r - rock ?c - cell)         ;; A rock is at a cell
-    (dirt-at ?c - cell)         ;; A dirt is at a cell
+    (at ?l - locatable ?c - cell)            ;; Player is at a cell
     (empty ?c - cell)                     ;; A cell is empty
     (adjacent-up ?c1 - cell ?c2 - cell)   ;; Two cells are adjacent
     (adjacent-down ?c1 - cell ?c2 - cell)   ;; Two cells are adjacent
