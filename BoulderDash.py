@@ -50,13 +50,16 @@ class BoulderDash:
         self.h = h
         # init display
         self.display = pygame.display.set_mode((self.w, self.h))
-        pygame.display.set_caption('Snake')
+        pygame.display.set_caption('Boulderdash')
+
+    def init_game(self, with_ai = False):
         self.clock = pygame.time.Clock()
 
         # init game state
         self.direction = Direction.RIGHT
 
         self.score = 0
+        self.with_ai = with_ai
         self.player = None
         self.collecting = None
         self.collected = []
@@ -71,6 +74,7 @@ class BoulderDash:
         self._place_gem()
         self._place_player()
         self.plan = []
+        
 
     def _place_player(self):
         x = random.randint(0, (self.w - BLOCK_SIZE) // BLOCK_SIZE)
@@ -124,43 +128,44 @@ class BoulderDash:
                     game_over = True
 
         # AI Planner
-        # if(len(self.plan) > 0):
-        #     action = self.plan.pop()
-        #     print("Action: ", action)
-        #     if action == "MOVE-UP":
-        #         self._move(Direction.UP)
-        #     elif action == "MOVE-DOWN":
-        #         self._move(Direction.DOWN)
-        #     elif action == "MOVE-RIGHT":
-        #         self._move(Direction.RIGHT)
-        #     elif action == "MOVE-LEFT":
-        #         self._move(Direction.LEFT)
-        #     elif action == "USE-UP":
-        #         self._use()
-        #     elif action == "USE-DOWN":
-        #         self._use()
-        #     elif action == "USE-LEFT":
-        #         self._use()
-        #     elif action == "USE-RIGHT":
-        #         self._use()
-        # else:
-        #     self.plan = []
-        #     with open("problem.pddl", "w") as f:
-        #         diamondRandomIndex = self.choosed_subgoal()
-        #         print('Going to ', diamondRandomIndex)
-        #         f.write(self.get_problem(diamondRandomIndex))
+        if self.with_ai:
+            if(len(self.plan) > 0):
+                action = self.plan.pop()
+                print("Action: ", action)
+                if action == "MOVE-UP":
+                    self._move(Direction.UP)
+                elif action == "MOVE-DOWN":
+                    self._move(Direction.DOWN)
+                elif action == "MOVE-RIGHT":
+                    self._move(Direction.RIGHT)
+                elif action == "MOVE-LEFT":
+                    self._move(Direction.LEFT)
+                elif action == "USE-UP":
+                    self._use()
+                elif action == "USE-DOWN":
+                    self._use()
+                elif action == "USE-LEFT":
+                    self._use()
+                elif action == "USE-RIGHT":
+                    self._use()
+            else:
+                self.plan = []
+                with open("problem.pddl", "w") as f:
+                    diamondRandomIndex = self.choosed_subgoal()
+                    print('Going to ', diamondRandomIndex)
+                    f.write(self.get_problem(diamondRandomIndex))
 
-        #     print("Planning")
-        #     plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
-        #     print("Finished Planning")
+                print("Planning")
+                plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
+                print("Finished Planning")
 
-        #     i = 0
-        #     print("Plan: ", plan_result)
-        #     while plan_result[i]:
-        #         self.plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
-        #         i += 1
-        #     self.plan.reverse()
-        #     print(self.plan)
+                i = 0
+                print("Plan: ", plan_result)
+                while plan_result[i]:
+                    self.plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
+                    i += 1
+                self.plan.reverse()
+                # print(self.plan)
 
         # 3. check collisions
         # self._check_collisions()
@@ -298,7 +303,7 @@ class BoulderDash:
                     pddl += "r" + str(index) + " "
                     index += 1
         pddl += "- boulder\n"
-        return pddl
+        return pddl if index > 1 else ""
 
     def get_cells(self):
         index = 1
@@ -397,10 +402,15 @@ class BoulderDash:
         self.grid = init_grid
         self.player = init_player
         self.collected = []
+        self.direction = Direction.RIGHT
+        self.score = 0
+        self.collecting = None
+        self.collected = []
         self._update_ui()
 
 if __name__ == '__main__':
     game = BoulderDash()
+    game.init_game(True)
 
     # game loop
     while True:

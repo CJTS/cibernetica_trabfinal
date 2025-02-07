@@ -7,11 +7,12 @@ import BoulderDash
 import ctypes
 import ff
 import copy
+import time
 
 # Constants
-data_per_level = 500  # Unique samples per level
+data_per_level = 5  # Unique samples per level
 total_samples = 100000  # Total training samples
-levels = 200  # Training levels
+levels = 5  # Training levels
 input_shape = (30, 30, 7)  # Assuming 30x30 grid with a single channel
 
 # Placeholder functions for the game environment
@@ -50,12 +51,14 @@ def find_plan(game, subgoal):
         attainable = True
         plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
         i += 1
+    plan.reverse()
 
     return plan, attainable
 
 def execute_plan(game, plan):
     """Execute a plan and return the resulting state."""
     action = plan.pop()
+    # print("Action: ", action)
     while action:
         if action == "MOVE-UP":
             game._move(BoulderDash.Direction.UP)
@@ -76,6 +79,8 @@ def execute_plan(game, plan):
         game.play_step()
         if(len(plan) > 0):
             action = plan.pop()
+            # print("Action: ", action)
+            time.sleep(1)
         else:
             break
     return initialize_level(game)  # Example resulting state
@@ -89,24 +94,31 @@ def collect_samples(game):
     for level_id in range(levels):
         print("Level: ", level_id)
         level_samples = 0
+        game.init_game()
         state, subgoals = initialize_level(game)
-        init_grid = copy.deepcopy(game.grid)
+        # init_grid = list(map(list, game.grid))
+        # init_grid = [copy.deepcopy(i) for i in game.grid]
+        # init_grid = copy.deepcopy(game.grid)
+
+        init_grid = [[0 for _ in range(BoulderDash.GRID_SIZE)] for _ in range(BoulderDash.GRID_SIZE)]
+        for x in range(len(init_grid)):
+            for y in range(len(init_grid[x])):
+                init_grid[x][y] = BoulderDash.Tiles(game.grid[x][y])
+
         init_player = game.player
 
         while level_samples < data_per_level:
-            print("Data in level: ", level_samples)
-            game.reset_game(init_grid, init_player)
-
             if not subgoals:
                 break  # Skip if no subgoals available
 
             while subgoals:
                 subgoal = select_random_subgoal(game)
-                print("subgoal", subgoal)
+                # print("Going for subgoal: ", subgoal)
 
                 if subgoal != None:
                     plan, attainable = find_plan(game, subgoal)
-                    print("plan: ", plan)
+                    # print("Plan: ", plan)
+                    # input("Press Enter to continue...")
 
                     if attainable:
                         planLength = len(plan)
@@ -114,17 +126,20 @@ def collect_samples(game):
                         sample = (state, subgoal, planLength, next_state)
                         dataset.append(sample)
                         level_samples += 1
+                        print("Data in level: ", level_samples)
 
                         state = next_state  # Update state
                     else:
                         sample = (state, subgoal, 0, None)
                         dataset.append(sample)
                         level_samples += 1
+                        print("Data in level: ", level_samples)
 
                     if level_samples >= data_per_level:
                         break
                 else:
                     print("Finished level, starting again.")
+                    game.reset_game(copy.deepcopy(init_grid), init_player)
                     break
 
     return dataset[:total_samples]
