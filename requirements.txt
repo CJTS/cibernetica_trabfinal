@@ -1,0 +1,7 @@
+numpy==1.26.4
+keras==3.8.0
+tensorflow==2.16.2
+tensorflow-macos==2.16.2
+tensorflow-metal==1.2.0
+pygame==2.6.1
+memory-profiler==0.61.0

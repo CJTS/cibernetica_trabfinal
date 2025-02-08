@@ -7,9 +7,6 @@ from enum import Enum
 from collections import namedtuple
 import ff
 
-pygame.init()
-font = pygame.font.Font('arial.ttf', 25)
-
 class Direction(Enum):
     RIGHT = 1
     LEFT = 2
@@ -39,21 +36,26 @@ BOULDER = (158, 155, 149)
 
 BLOCK_SIZE = 20
 DIRT_NUM = 800
-GEMS_NUM = 2
+GEMS_NUM = 23
 BOULDER_NUM = 100
 SPEED = 20
 GRID_SIZE = 30
 
 class BoulderDash:
-    def __init__(self, w = GRID_SIZE * BLOCK_SIZE, h = GRID_SIZE * BLOCK_SIZE):
+    def __init__(self, with_ui = False, w = GRID_SIZE * BLOCK_SIZE, h = GRID_SIZE * BLOCK_SIZE):
+        
         self.w = w
         self.h = h
         # init display
-        self.display = pygame.display.set_mode((self.w, self.h))
-        pygame.display.set_caption('Boulderdash')
+        self.with_ui = with_ui
+        if self.with_ui:
+            pygame.init()
+            self.display = pygame.display.set_mode((self.w, self.h))
+            pygame.display.set_caption('Boulderdash')
 
     def init_game(self, with_ai = False):
-        self.clock = pygame.time.Clock()
+        if self.with_ui:
+            self.clock = pygame.time.Clock()
 
         # init game state
         self.direction = Direction.RIGHT
@@ -74,7 +76,6 @@ class BoulderDash:
         self._place_gem()
         self._place_player()
         self.plan = []
-        
 
     def _place_player(self):
         x = random.randint(0, (self.w - BLOCK_SIZE) // BLOCK_SIZE)
@@ -109,23 +110,24 @@ class BoulderDash:
         game_over = False
 
         # 1. collect user input
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    self._move(Direction.LEFT)
-                elif event.key == pygame.K_RIGHT:
-                    self._move(Direction.RIGHT)
-                elif event.key == pygame.K_UP:
-                    self._move(Direction.UP)
-                elif event.key == pygame.K_DOWN:
-                    self._move(Direction.DOWN)
-                elif event.key == pygame.K_RETURN:
-                    self._use()
-                elif event.key == pygame.K_ESCAPE:
-                    game_over = True
+        if self.with_ui:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT:
+                        self._move(Direction.LEFT)
+                    elif event.key == pygame.K_RIGHT:
+                        self._move(Direction.RIGHT)
+                    elif event.key == pygame.K_UP:
+                        self._move(Direction.UP)
+                    elif event.key == pygame.K_DOWN:
+                        self._move(Direction.DOWN)
+                    elif event.key == pygame.K_RETURN:
+                        self._use()
+                    elif event.key == pygame.K_ESCAPE:
+                        game_over = True
 
         # AI Planner
         if self.with_ai:
@@ -176,8 +178,9 @@ class BoulderDash:
             return game_over, self.score
 
         # 5. update ui and clock
-        self._update_ui()
-        self.clock.tick(SPEED)
+        if self.with_ui:
+            self._update_ui()
+            self.clock.tick(SPEED)
 
         # 6. return game over and score
 
@@ -254,28 +257,31 @@ class BoulderDash:
 
     def _update_ui(self):
         gemindex = 0
-        self.display.fill(BLACK)
+        if self.with_ui:
+            self.display.fill(BLACK)
 
-        for x in range(len(self.grid)):
-            for y in range(len(self.grid[x])):
-                if self.grid[x][y] == Tiles.DIRT:
-                    pygame.draw.rect(self.display, DIRT, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
-                elif self.grid[x][y] == Tiles.BOULDER:
-                    pygame.draw.rect(self.display, BOULDER, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
-                elif self.grid[x][y] == Tiles.GEM:
-                    pygame.draw.rect(self.display, GEM, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
-                    gemindex += 1
+            for x in range(len(self.grid)):
+                for y in range(len(self.grid[x])):
+                    if self.grid[x][y] == Tiles.DIRT:
+                        pygame.draw.rect(self.display, DIRT, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                    elif self.grid[x][y] == Tiles.BOULDER:
+                        pygame.draw.rect(self.display, BOULDER, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                    elif self.grid[x][y] == Tiles.GEM:
+                        pygame.draw.rect(self.display, GEM, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                        gemindex += 1
 
-        pygame.draw.rect(self.display, RED, pygame.Rect(self.player.y  * BLOCK_SIZE, self.player.x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+            pygame.draw.rect(self.display, RED, pygame.Rect(self.player.y  * BLOCK_SIZE, self.player.x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
 
-        text = font.render("Score: " + str(self.score), True, WHITE)
-        self.display.blit(text, [0, 0])
+            font = pygame.font.Font('arial.ttf', 25)
+            text = font.render("Score: " + str(self.score), True, WHITE)
+            self.display.blit(text, [0, 0])
 
-        for x in range(len(self.gems)):
-            text = font.render(str(x), True, WHITE)
-            self.display.blit(text, [self.gems[x][1] * BLOCK_SIZE, self.gems[x][0] * BLOCK_SIZE])
+            for x in range(len(self.gems)):
+                font = pygame.font.Font('arial.ttf', 16)
+                text = font.render(str(x), True, WHITE)
+                self.display.blit(text, [self.gems[x][1] * BLOCK_SIZE, self.gems[x][0] * BLOCK_SIZE])
 
-        pygame.display.flip()
+            pygame.display.flip()
 
     def count_diamonds(self):
         index = 0
@@ -409,7 +415,7 @@ class BoulderDash:
         self._update_ui()
 
 if __name__ == '__main__':
-    game = BoulderDash()
+    game = BoulderDash(True)
     game.init_game(True)
 
     # game loop
@@ -432,6 +438,5 @@ if __name__ == '__main__':
 
 
     print('Final Score', score)
-
 
     pygame.quit()

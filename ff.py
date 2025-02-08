@@ -1,6 +1,8 @@
 import ctypes
 import ctypes.util
 
+_ff = None
+
 @ctypes.CFUNCTYPE(None, ctypes.c_int)
 def custom_exit(status):
     print(f"Intercepted exit call with status: {status}")
@@ -18,6 +20,7 @@ def close(lib):
     close_cdll(lib)
 
 def plan(args):
+    global _ff
     _ff = ctypes.CDLL('./FF-v2.3/ff')
     _ff.main.restype = ctypes.POINTER(ctypes.c_char_p)
     _ff.main.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_char_p))
@@ -29,5 +32,9 @@ def plan(args):
     except SystemExit as e:
         print(e)  # Handle the intercepted exit
         result = (ctypes.c_char_p * 0)
-    close(_ff)
     return result
+
+def free_memory(args):
+    global _ff
+    _ff.free_memory(args)
+    close(_ff)

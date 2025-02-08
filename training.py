@@ -1,3 +1,4 @@
+from memory_profiler import profile, memory_usage
 import random
 import numpy as np
 import tensorflow as tf
@@ -8,14 +9,17 @@ import ctypes
 import ff
 import copy
 import time
+import datetime
+
+date = datetime.datetime.now()
 
 # Constants
-data_per_level = 5  # Unique samples per level
+data_per_level = 200  # Unique samples per level
 total_samples = 100000  # Total training samples
-levels = 5  # Training levels
+levels = 500  # Training levels
 input_shape = (30, 30, 7)  # Assuming 30x30 grid with a single channel
 
-# Placeholder functions for the game environment
+# @profile()
 def initialize_level(game):
     """Initialize a level and return its initial state."""
     tensor = np.zeros((BoulderDash.GRID_SIZE, BoulderDash.GRID_SIZE, 7), dtype=np.float32)
@@ -33,10 +37,12 @@ def initialize_level(game):
     # Replace with actual level initialization logic
     return tensor, game.subgoals()  # state, list of eligible subgoals
 
+# @profile()
 def select_random_subgoal(game):
     """Randomly select an eligible subgoal."""
     return game.choosed_subgoal()
 
+@profile()
 def find_plan(game, subgoal):
     """Find a plan from the current state to the given subgoal."""
     # Replace with planning logic (return plan and whether the subgoal is attainable)
@@ -51,10 +57,12 @@ def find_plan(game, subgoal):
         attainable = True
         plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
         i += 1
+    ff.free_memory(plan_result)
     plan.reverse()
 
     return plan, attainable
 
+# @profile()
 def execute_plan(game, plan):
     """Execute a plan and return the resulting state."""
     action = plan.pop()
@@ -85,13 +93,12 @@ def execute_plan(game, plan):
             break
     return initialize_level(game)  # Example resulting state
 
-# Dataset preparation
+# @profile()
 def collect_samples(game):
     """Collect samples for training using random exploration."""
     print("Collect samples for training using random exploration.")
-    dataset = []
-
     for level_id in range(levels):
+        dataset = []
         print("Level: ", level_id)
         level_samples = 0
         game.init_game()
@@ -122,7 +129,7 @@ def collect_samples(game):
 
                     if attainable:
                         planLength = len(plan)
-                        next_state = execute_plan(game, plan)
+                        next_state, _ = execute_plan(game, plan)
                         sample = (state, subgoal, planLength, next_state)
                         dataset.append(sample)
                         level_samples += 1
@@ -142,13 +149,15 @@ def collect_samples(game):
                     game.reset_game(copy.deepcopy(init_grid), init_player)
                     break
 
-    return dataset[:total_samples]
+        states, targets = preprocess_data(dataset)
+        np.save('dataset/states-' + str(level_id) + '-' + str(date) + '.npy', np.array(states))
+        np.save('dataset/targets-' + str(level_id) + '-' + str(date) + '.npy', np.array(targets))
 
-# CNN model definition
+# @profile()
 def create_model():
     """Create a CNN model for training."""
     model = Sequential([
-        Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=input_shape),
+        Conv2D(32, kernel_size=(3, 3), activation='relu',input_shape=input_shape),
         MaxPooling2D(pool_size=(2, 2)),
         Conv2D(64, kernel_size=(3, 3), activation='relu'),
         MaxPooling2D(pool_size=(2, 2)),
@@ -160,7 +169,7 @@ def create_model():
     model.compile(optimizer='adam', loss='mse', metrics=['mae'])
     return model
 
-# Data preprocessing
+# @profile()
 def preprocess_data(dataset):
     """Prepare data for CNN training."""
     states = []
@@ -182,18 +191,21 @@ def preprocess_data(dataset):
 if __name__ == "__main__":
     game = BoulderDash.BoulderDash()
     print("Collecting samples...")
-    dataset = collect_samples(game)
+    collect_samples(game)
 
     # print("Preprocessing data...")
     # states, targets = preprocess_data(dataset)
 
-    # print("Creating model...")
-    # model = create_model()
+    print("Creating model...")
+    model = create_model()
 
-    # print("Training model...")
-    # model.fit(states, targets, epochs=10, batch_size=32, validation_split=0.1)
+    print("Training model...")
+    for level_id in range(levels):
+        states = np.load('dataset/states-' + str(level_id) + '-' + str(date) + '.npy')
+        targets = np.load('dataset/targets-' + str(level_id) + '-' + str(date) + '.npy')
+        model.fit(states, targets, epochs=10, batch_size=32)
 
-    # print("Saving model...")
-    # model.save("boulderdash_cnn_model.h5")
+    print("Saving model...")
+    model.save('boulderdash_cnn_model.keras')
 
-    # print("Training complete.")
+    print("Training complete.")

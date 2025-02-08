@@ -18,3 +18,8 @@ InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault
 ## run FF
 
 ./FF-v2.3/ff -f ./problem1.pddl -o ./domain.pddl -i 0
+
+# Env Mac
+
+source ./venv/bin/activate
+pip install -r requirements.txt
