@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, MaxPooling2D
-import BoulderDash
+import Game
 import ctypes
 import ff
 import copy
@@ -22,15 +22,15 @@ input_shape = (30, 30, 7)  # Assuming 30x30 grid with a single channel
 # @profile()
 def initialize_level(game):
     """Initialize a level and return its initial state."""
-    tensor = np.zeros((BoulderDash.GRID_SIZE, BoulderDash.GRID_SIZE, 7), dtype=np.float32)
+    tensor = np.zeros((Game.GRID_SIZE, Game.GRID_SIZE, 7), dtype=np.float32)
     # subgoals = []
     # gemsIndex = 0
 
     # Populate the tensor
-    for x in range(BoulderDash.GRID_SIZE):
-        for y in range(BoulderDash.GRID_SIZE):
+    for x in range(Game.GRID_SIZE):
+        for y in range(Game.GRID_SIZE):
             tile_type = game.grid[x][y]
-            if tile_type != BoulderDash.Tiles.EMPTY:
+            if tile_type != Game.Tiles.EMPTY:
                 # Set the corresponding position in the tensor to 1
                 tensor[x][y][tile_type.value - 1] = 1
     game._update_ui()
@@ -69,13 +69,13 @@ def execute_plan(game, plan):
     # print("Action: ", action)
     while action:
         if action == "MOVE-UP":
-            game._move(BoulderDash.Direction.UP)
+            game._move(Game.Direction.UP)
         elif action == "MOVE-DOWN":
-            game._move(BoulderDash.Direction.DOWN)
+            game._move(Game.Direction.DOWN)
         elif action == "MOVE-RIGHT":
-            game._move(BoulderDash.Direction.RIGHT)
+            game._move(Game.Direction.RIGHT)
         elif action == "MOVE-LEFT":
-            game._move(BoulderDash.Direction.LEFT)
+            game._move(Game.Direction.LEFT)
         elif action == "USE-UP":
             game._use()
         elif action == "USE-DOWN":
@@ -107,10 +107,10 @@ def collect_samples(game):
         # init_grid = [copy.deepcopy(i) for i in game.grid]
         # init_grid = copy.deepcopy(game.grid)
 
-        init_grid = [[0 for _ in range(BoulderDash.GRID_SIZE)] for _ in range(BoulderDash.GRID_SIZE)]
+        init_grid = [[0 for _ in range(Game.GRID_SIZE)] for _ in range(Game.GRID_SIZE)]
         for x in range(len(init_grid)):
             for y in range(len(init_grid[x])):
-                init_grid[x][y] = BoulderDash.Tiles(game.grid[x][y])
+                init_grid[x][y] = Game.Tiles(game.grid[x][y])
 
         init_player = game.player
 
@@ -189,7 +189,7 @@ def preprocess_data(dataset):
 
 # Training process
 if __name__ == "__main__":
-    game = BoulderDash.BoulderDash()
+    game = Game.BoulderDash()
     print("Collecting samples...")
     collect_samples(game)
 

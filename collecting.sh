@@ -1,3 +1,3 @@
-for i in {300..500}; do \
+for i in {1..500}; do \
     python generate.py $i;
 done
