@@ -42,7 +42,7 @@ def select_random_subgoal(game):
     """Randomly select an eligible subgoal."""
     return game.choosed_subgoal()
 
-@profile()
+# @profile()
 def find_plan(game, subgoal):
     """Find a plan from the current state to the given subgoal."""
     # Replace with planning logic (return plan and whether the subgoal is attainable)
