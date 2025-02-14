@@ -330,7 +330,7 @@ class BoulderDash:
 
     def get_gems(self):
         pddl = "    "
-        index = 1
+        index = 0
         for x in range(len(self.grid)):
             for y in range(len(self.grid[x])):
                 if self.grid[x][y] == Tiles.GEM:
@@ -341,7 +341,7 @@ class BoulderDash:
 
     def get_boulders(self):
         pddl = "    "
-        index = 1
+        index = 0
         for x in range(len(self.grid)):
             for y in range(len(self.grid[x])):
                 if self.grid[x][y] == Tiles.BOULDER:
@@ -361,8 +361,8 @@ class BoulderDash:
         return pddl
 
     def get_state(self):
-        indexBoulder = 1
-        indexGem = 1
+        indexBoulder = 0
+        indexGem = 0
         pddl = "    "
         pddl += "(at p1 c_" + str(self.player.x) + "_" + str(self.player.y) +")\n    "
         if self.direction == Direction.UP:
@@ -436,7 +436,8 @@ class BoulderDash:
         """Randomly select an eligible subgoal."""
         remainingGems = self.subgoals()
         if(len(remainingGems) > 0):
-            return random.randrange(0, len(remainingGems))
+            randIndex = random.randrange(0, len(remainingGems))
+            return randIndex
         else:
             return None
 

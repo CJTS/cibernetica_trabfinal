@@ -4,7 +4,8 @@ import ff
 import numpy as np
 import ctypes
 import copy
-from helper import get_state, preprocess_data
+from Helper import get_state, preprocess_data
+import tensorflow as tf
 
 data_per_level = 200  # Unique samples per level
 
@@ -70,6 +71,7 @@ def collect_samples(game):
 
     while level_samples < data_per_level:
         while True:
+            subgoals = game.subgoals()
             subgoal = game.choose_subgoal()
 
             if subgoal != None:
@@ -78,12 +80,13 @@ def collect_samples(game):
                 if attainable:
                     plan_length = len(plan)
                     execute_plan(game, plan)
-                    sample = (state, game.gems[subgoal], plan_length)
+                    next_state = get_state(game)
+                    sample = (state, subgoals[subgoal], plan_length, next_state)
                     dataset.append(sample)
                     level_samples += 1
                     print("Data in level: ", level_samples)
                 else:
-                    sample = (state, subgoal, 0)
+                    sample = (state, subgoal, 200, None)
                     dataset.append(sample)
                     level_samples += 1
                     print("Data in level: ", level_samples)
@@ -95,9 +98,10 @@ def collect_samples(game):
                 game.reset_game(copy.deepcopy(init_grid), init_player)
                 break
 
-    states, targets = preprocess_data(dataset)
-    np.save('dataset2/states-' + str(sys.argv[1]) + '.npy', np.array(states))
-    np.save('dataset2/targets-' + str(sys.argv[1]) + '.npy', np.array(targets))
+    states, targets, next_states = preprocess_data(dataset)
+    np.save('dataset/states-' + str(sys.argv[1]) + '.npy', np.array(states))
+    np.save('dataset/targets-' + str(sys.argv[1]) + '.npy', np.array(targets))
+    np.save('dataset/next-states-' + str(sys.argv[1]) + '.npy', np.array(next_states))
 
 if __name__ == "__main__":
     game = Game.BoulderDash()

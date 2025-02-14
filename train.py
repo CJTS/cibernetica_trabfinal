@@ -1,6 +1,7 @@
 import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, Dense, Flatten, BatchNormalization, InputLayer
+import tensorflow as tf
 import Game
 import glob
 
@@ -26,7 +27,7 @@ def create_model():
         Dense(1, activation='linear')  # Predicting plan length or reward
     ])
 
-    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    model.compile(optimizer='adam', loss=bellman_loss)
     return model
 
 if __name__ == "__main__":
@@ -52,6 +53,6 @@ if __name__ == "__main__":
     model.fit(states, targets, epochs=10, batch_size=32)
 
     print("Saving model...")
-    model.save('boulderdash_cnn_model.keras')
+    # model.save('boulderdash_cnn_model.keras')
 
     print("Training complete.")

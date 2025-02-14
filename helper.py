@@ -23,14 +23,17 @@ def preprocess_data(dataset):
     """Prepare data for CNN training."""
     states = []
     targets = []
+    next_states = []
 
     for sample in dataset:
-        state, subgoal, plan_length = sample
+        state, subgoal, plan_length, next_state = sample
         state[subgoal[0]][subgoal[1]][6] = 1
         states.append(state)
         targets.append(plan_length)
+        next_states.append(next_state)
 
     states = np.array(states).reshape(-1, *input_shape)
     targets = np.array(targets)
+    next_states = np.array(next_states).reshape(-1, *input_shape)
 
-    return states, targets
+    return states, targets, next_states

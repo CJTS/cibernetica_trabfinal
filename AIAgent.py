@@ -5,11 +5,12 @@ import numpy as np
 from helper import get_state, input_shape
 
 if __name__ == '__main__':
-    game = Game.BoulderDash(True)
-    game.init_game(False)
+    game = Game.BoulderDash(with_ui=True)
+    game.init_game()
 
     new_model = tf.keras.models.load_model('boulderdash_cnn_model.keras')
-    state, subgoals = get_state(game)
+    state = get_state(game)
+    subgoals = game.subgoals()
     state = np.array(state).reshape(-1, *input_shape)
 
     for subgoal in subgoals:
