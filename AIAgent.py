@@ -2,13 +2,15 @@ import pygame
 import Game
 import tensorflow as tf
 import numpy as np
-from helper import get_state, input_shape
+from Helper import get_state, input_shape
+from DQNTraining import DQN
 
 if __name__ == '__main__':
     game = Game.BoulderDash(with_ui=True)
     game.init_game()
 
-    new_model = tf.keras.models.load_model('boulderdash_cnn_model.keras')
+    new_model = tf.keras.models.load_model('dqn.keras')
+
     state = get_state(game)
     subgoals = game.subgoals()
     state = np.array(state).reshape(-1, *input_shape)
@@ -22,7 +24,7 @@ if __name__ == '__main__':
 
     # game loop
     while True:
-        game_over, score = game.play_step()
+        game_over, died, score = game.play_step()
 
         if game_over == True:
             break
