@@ -1,0 +1,9 @@
+venv/*
+dataset/*
+dataset2/*
+dataset-dynamic/*
+
+
+        diamondRandomIndex = game.choose_subgoal()
+        uncertainty = game._calculate_uncertainty(diamondRandomIndex)
+        print("uncertainty", diamondRandomIndex, uncertainty)

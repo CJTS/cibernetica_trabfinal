@@ -7,31 +7,8 @@ from enum import Enum
 from collections import namedtuple
 import ff
 import numpy as np
-from typing import List, Tuple
-import copy
-
-class Direction(Enum):
-    RIGHT = 1
-    LEFT = 2
-    UP = 3
-    DOWN = 4
-
-class Actions(Enum):
-    MOVE_RIGHT = 1
-    MOVE_LEFT = 2
-    MOVE_UP = 3
-    MOVE_DOWN = 4
-    USE = 4
-
-class Tiles(Enum):
-    PLAYER = 1
-    EXIT = 2
-    BOULDER = 3
-    GEM = 4
-    WALL = 5
-    DIRT = 6
-    SUBGOAL = 7
-    EMPTY = 8
+import scipy.special
+from Game import Direction, Actions, Tiles
 
 Point = namedtuple('Point', 'x, y')
 
@@ -45,14 +22,13 @@ DIRT = (103, 60, 14)
 BOULDER = (158, 155, 149)
 EXIT = (0, 155, 0)
 
-BLOCK_SIZE = 50
+BLOCK_SIZE = 40
 DIRT_NUM = 800
 GEMS_NUM = 23
 BOULDER_NUM = 50
 SPEED = 20
 GRID_HEIGHT = 13
 GRID_WIDTH = 26
-MAX_STEPS = 6
 
 class BoulderDash:
     def __init__(self, with_ui = False, dynamic = False, with_ai = False, w = GRID_WIDTH * BLOCK_SIZE, h = GRID_HEIGHT * BLOCK_SIZE):
@@ -77,8 +53,9 @@ class BoulderDash:
         self.score = 0
         self.player = None
         self.exit = None
-        self.collecting = None
-        # self.death_markov_matrix = np.zeros((GRID_HEIGHT * GRID_WIDTH, GRID_HEIGHT * GRID_WIDTH))  # Criando um array 13x26
+        self.current_subgoal = None
+        self.uncertainty = 0
+        self.death_markov_matrix = np.zeros((GRID_HEIGHT * GRID_WIDTH, GRID_HEIGHT * GRID_WIDTH))  # Criando um array 13x26
 
         self.grid = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         for x in range(len(self.grid)):
@@ -91,138 +68,118 @@ class BoulderDash:
         self._place_player()
         self._place_exit()
         self._update_objects()
+        self._calculate_death()
         self.plan = []
 
-    def _calculate_uncertainty(self, subgoal):
-        init_player = self.player
-        init_score = self.score
-        deaths = 0
-        init_grid = self._deep_copy_grid()
-        dist_x = abs(subgoal[0] - init_player.x)
-        dist_y = abs(subgoal[1] - init_player.y)
-        new_end_x = init_player.x + min(dist_x, MAX_STEPS) * (1 if subgoal[0] >= init_player.x else -1)
-        new_end_y = init_player.y + min(dist_y, MAX_STEPS) * (1 if subgoal[1] >= init_player.y else -1)
-        end = (new_end_x, new_end_y)
-        dist_calculated_x = abs(end[0] - init_player.x)
-        dist_calculated_y = abs(end[1] - init_player.y)
+    def _calculate_death(self):
+        self.death_markov_matrix = np.zeros((GRID_HEIGHT, GRID_WIDTH))  # Criando um array 13x26
+        frontier = []
+        self.gotHere = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
 
-        paths = self.find_paths((init_player.x, init_player.y), end, MAX_STEPS)
-        # print("len(paths)", len(paths))
-        for path in paths:
-            deaths += self._execute_path(path)
-            self._restore_state(init_grid, init_player, init_score)
-        # print("deaths", deaths)
+        boulder_or_gem = [Tiles.BOULDER, Tiles.GEM]
 
-        uncertainty = deaths / len(paths)
-        if dist_x > MAX_STEPS or dist_y > MAX_STEPS:
-            return self._uncertainty_heuristics(dist_x + dist_y, dist_calculated_x + dist_calculated_y, uncertainty)
+        # if self.player.x > 0 and self.grid[self.player.x - 1][self.player.y] != Tiles.BOULDER:
+        #     frontier.append((Actions.MOVE_UP, (self.player.x - 1, self.player.y), Direction.UP, None))
+        if self.player.x < GRID_HEIGHT - 1 and self.grid[self.player.x + 1][self.player.y] != Tiles.BOULDER:
+            frontier.append((Actions.MOVE_DOWN, (self.player.x + 1, self.player.y), Direction.DOWN, None))
+        if self.player.y > 0 and self.grid[self.player.x][self.player.y - 1] != Tiles.BOULDER:
+            frontier.append((Actions.MOVE_LEFT, (self.player.x, self.player.y - 1), None, Direction.LEFT))
+        if self.player.y < GRID_WIDTH - 1 and self.grid[self.player.x][self.player.y + 1] != Tiles.BOULDER:
+            frontier.append((Actions.MOVE_RIGHT, (self.player.x, self.player.y + 1), None, Direction.RIGHT))
 
-        return uncertainty
-
-    def _uncertainty_heuristics(self, real_distance, calculated_distance, uncertainty):
-        return (real_distance * uncertainty) / calculated_distance
-
-    def _deep_copy_grid(self):
-        init_grid = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
-        for x in range(len(init_grid)):
-            for y in range(len(init_grid[x])):
-                    init_grid[x][y] = Tiles(self.grid[x][y])
-        return init_grid
-
-    def _execute_path(self, path):
-        for idx, cell in enumerate(path):
+        while(len(frontier) > 0):
+            cell = frontier.pop()
             # print(cell)
-            dx = cell[0] - path[idx - 1][0]
-            dy = cell[1] - path[idx - 1][1]
-            if dx == 1:
-                self.direction = Direction.DOWN
-            elif dx == -1:
-                self.direction = Direction.UP
-            elif dy == 1:
-                self.direction = Direction.RIGHT
-            elif dy == -1:
-                self.direction = Direction.LEFT
+            action = cell[0]
+            x = cell[1][0]
+            y = cell[1][1]
 
-            if self.grid[cell[0]][cell[1]] == Tiles.BOULDER:
-                # print("USE")
-                self._use()
-                alive = self._update_objects()
-                # self._update_ui()
-                # time.sleep(1)
-                if not alive:
-                    # print('Morreu')
-                    return 1
+            self.gotHere[x][y] += 1
 
-            if idx > 0:
-                if dx == 1:
-                    self.direction = Direction.DOWN
-                    self._move(Direction.DOWN)
-                    # print("MOVE DOWN")
-                elif dx == -1:
-                    self.direction = Direction.UP
-                    self._move(Direction.UP)
-                    # print("MOVE UP")
-                elif dy == 1:
-                    self.direction = Direction.RIGHT
-                    self._move(Direction.RIGHT)
-                    # print("MOVE RIGHT")
-                elif dy == -1:
-                    self.direction = Direction.LEFT
-                    self._move(Direction.LEFT)
-                    # print("MOVE LEFT")
-                alive = self._update_objects()
-                # self._update_ui()
-                # time.sleep(1)
-                if not alive:
-                    # print('Morreu')
-                    return 1
-        return 0
+            if(
+                (
+                    action == Actions.MOVE_DOWN and
+                    (
+                        (self.grid[x - 2][y] in boulder_or_gem) or
+                        (self.grid[x - 2][y - 1] == Tiles.EMPTY and self.grid[x - 1][y - 1] in boulder_or_gem) or
+                        (y < GRID_WIDTH - 1 and self.grid[x - 2][y + 1] == Tiles.EMPTY and self.grid[x - 1][y + 1] in boulder_or_gem)
+                    )
+                ) or
+                (
+                    action == Actions.USE and
+                    self.grid[x - 2][y] == Tiles.BOULDER and
+                    self.grid[x - 2][y] in boulder_or_gem
+                )
+            ):
+                self.death_markov_matrix[x][y] += 1
 
-    def _restore_state(self, grid, player, score):
-        self.grid = copy.deepcopy(grid)
-        self.player = player
-        self.score = score
 
-    def find_paths(grid_size: Tuple[int, int], start: Tuple[int, int], end: Tuple[int, int], max_step: int = 11) -> List[List[Tuple[int, int]]]:
-        n, m = (GRID_HEIGHT, GRID_WIDTH)
-        paths = []
+            frontier += self.calculate_neighbours(cell)
+            # self._update_ui()
+            # time.sleep(.5)
 
-        # Ajusta o ponto final caso esteja fora do alcance máximo
-        # dist_x = abs(end[0] - start[0])
-        # dist_y = abs(end[1] - start[1])
-        # new_end_x = start[0] + min(dist_x, max_step) * (1 if end[0] >= start[0] else -1)
-        # new_end_y = start[1] + min(dist_y, max_step) * (1 if end[1] >= start[1] else -1)
-        # end = (new_end_x, new_end_y)
+        # for x in range(GRID_HEIGHT):
+        #     for y in range(GRID_WIDTH):
+        #         self.death_markov_matrix[x][y] = self.death_markov_matrix[x][y] / (self.gotHere[x][y] + 1)
 
-        def get_directions(start, end):
-            dx = 1 if start[0] < end[0] else -1 if start[0] > end[0] else 0
-            dy = 1 if start[1] < end[1] else -1 if start[1] > end[1] else 0
-            return [(dx, 0), (0, dy)]
+    def calculate_neighbours(self, cell):
+        frontier = []
+        action = cell[0]
+        x = cell[1][0]
+        y = cell[1][1]
+        orientationX = cell[2]
+        orientationY = cell[3]
 
-        def is_valid(x, y, visited, steps_x, steps_y):
-            dist_x = abs(end[0] - start[0])
-            dist_y = abs(end[1] - start[1])
-            return (0 <= x < n and 0 <= y < m and (x, y) not in visited and
-                    steps_x <= min(dist_x, max_step) and steps_y <= min(dist_y, max_step))
+        dist = (abs(self.player.x - x)) + (abs(self.player.y - y))
+        combinations = scipy.special.binom(dist, abs(self.player.x - x))
 
-        def dfs(current_path, steps_x, steps_y):
-            x, y = current_path[-1]
+        if (self.gotHere[x][y] <= combinations):
+            # if x > 0 and (orientationX == Direction.UP or orientationX == None) and self.grid[x - 1][y] != Tiles.BOULDER:
+            #     frontier.append((Actions.MOVE_UP, (x - 1, y) , Direction.UP, orientationY))
+            if x < GRID_HEIGHT - 1 and (orientationX == Direction.DOWN or orientationX == None) and self.grid[x + 1][y] != Tiles.BOULDER:
+                frontier.append((Actions.MOVE_DOWN, (x + 1, y) , Direction.DOWN, orientationY))
+            if y > 0 and (orientationY == Direction.LEFT or orientationY == None) and self.grid[x][y - 1] != Tiles.BOULDER:
+                frontier.append((Actions.MOVE_LEFT, (x, y - 1) , orientationX, Direction.LEFT))
+            if y < GRID_WIDTH - 1 and (orientationY == Direction.RIGHT or orientationY == None) and self.grid[x][y + 1] != Tiles.BOULDER:
+                frontier.append((Actions.MOVE_RIGHT, (x, y + 1) , orientationX, Direction.RIGHT))
 
-            if (x, y) == end:
-                paths.append(current_path[:])
-                return
+        return frontier
 
-            for dx, dy in get_directions(start, end):
-                nx, ny = x + dx, y + dy
-                new_steps_x = steps_x + 1 if dx != 0 else steps_x
-                new_steps_y = steps_y + 1 if dy != 0 else steps_y
-                if is_valid(nx, ny, set(current_path), new_steps_x, new_steps_y):
-                    current_path.append((nx, ny))
-                    dfs(current_path, new_steps_x, new_steps_y)
-                    current_path.pop()
+    def _calculate_markov(self):
+        self.death_markov_matrix = np.zeros((GRID_HEIGHT * GRID_WIDTH, GRID_HEIGHT * GRID_WIDTH))  # Criando um array 13x26
+        possibilities = [Tiles.BOULDER, Tiles.GEM]
+        for nextCell in range(GRID_HEIGHT * GRID_WIDTH):
+            nextX = nextCell // GRID_WIDTH
+            nextY = nextCell % GRID_WIDTH
+            for currentCell in range(GRID_HEIGHT * GRID_WIDTH):
+                self.death_markov_matrix[nextCell][currentCell] = 0
+                currentX = currentCell // GRID_WIDTH
+                currentY = currentCell % GRID_WIDTH
 
-        dfs([start], 0, 0)
-        return paths
+                if nextX == currentX and nextY == currentY:
+                    # Ir para baixo
+                    if (currentX > 0 and
+                        (self.grid[currentX - 1][currentY] in possibilities or # Pedra em cima
+                            (self.grid[currentX - 1][currentY] == Tiles.EMPTY and  # Ter po onde deslizar
+                                (
+                                    (self.grid[currentX - 1][currentY - 1] in possibilities and self.grid[currentX][currentY - 1] in possibilities) or # Deslizar pela esquerda
+                                    (currentY < GRID_WIDTH - 1 and self.grid[currentX - 1][currentY + 1] in possibilities and self.grid[currentX][currentY + 1] in possibilities) # Deslizar pela direita
+                                )
+                            )
+                        )): # Deslizament
+                        self.death_markov_matrix[nextCell][currentCell] += 0.2 # Probabilidade de de 20% que é escolher ir para baixo entre as 5 possiveis ações
+
+                    # Picareta
+                    if (self.grid[currentX - 2][currentY] in possibilities and self.grid[currentX - 1][currentY] in possibilities):
+                        self.death_markov_matrix[nextCell][currentCell] += 0.2 # Probabilidade de de 20% que é escolher ir quebrar a pedra entre as 5 possiveis ações
+
+        # M2 = np.linalg.matrix_power(self.death_markov_matrix, 23)
+        # current_position = np.zeros((GRID_HEIGHT * GRID_WIDTH))
+        # current_position[(self.player.x * GRID_WIDTH) + self.player.y] = 1
+        # print(current_position)
+        # grupo_semana3 = np.matmul(M2, current_position)
+        # print(grupo_semana3)
+
 
     def _place_player(self):
         x = random.randint(0, (self.h - BLOCK_SIZE) // BLOCK_SIZE)
@@ -263,7 +220,7 @@ class BoulderDash:
     def play_step(self):
         game_over = False
         died = False
-        moved = False
+        moved = True
 
         # 1. collect user input
         if self.with_ui:
@@ -312,11 +269,24 @@ class BoulderDash:
                     self._use()
                 elif action == "USE-RIGHT":
                     self._use()
+                self.uncertainty += self.death_markov_matrix[self.player.x][self.player.y]
+            elif len(self.plan) == 0 and self.current_subgoal != None:
+                remainingGems = self.subgoals()
+                x = remainingGems[self.current_subgoal][0]
+                y = remainingGems[self.current_subgoal][1]
+                dist = (abs(self.player.x - x)) + (abs(self.player.y - y))
+                combinations = scipy.special.binom(dist, abs(self.player.x - x))
+                self.uncertainty = self.uncertainty / combinations
+                print("reached goal", self.current_subgoal , "with uncertanty", self.uncertainty)
+                self.current_subgoal = None
+                self._calculate_death()
             else:
                 self.plan = []
+                self.uncertainty = 0
                 with open("problem.pddl", "w") as f:
                     diamondRandomIndex = self.choose_subgoal()
                     print('Going to ', diamondRandomIndex)
+                    self.current_subgoal = diamondRandomIndex
                     if(diamondRandomIndex == None):
                         f.write(self.get_problem_exit())
                     else:
@@ -351,6 +321,8 @@ class BoulderDash:
             self._update_ui()
             self.clock.tick(SPEED)
 
+        # 6. return game over and score
+
         # time.sleep(.5)
         return game_over, died, self.score
 
@@ -381,6 +353,7 @@ class BoulderDash:
                                     self.grid[x][y] = Tiles.EMPTY
                                     change = True
                                     break  # Move apenas uma vez
+        # self._calculate_markov()
         return True
 
 
@@ -473,9 +446,14 @@ class BoulderDash:
                         # self.display.blit(text, [y * BLOCK_SIZE, x * BLOCK_SIZE])
                         gemindex += 1
 
-            font = pygame.font.Font('arial.ttf', 25)
-            text = font.render("Score: " + str(self.score), True, WHITE)
-            self.display.blit(text, [0, 0])
+                    font = pygame.font.Font('arial.ttf', 14)
+                    text = font.render(str(self.death_markov_matrix[x][y]), True, WHITE)
+                    self.display.blit(text, [y * BLOCK_SIZE, x * BLOCK_SIZE])
+
+
+            # font = pygame.font.Font('arial.ttf', 25)
+            # text = font.render("Score: " + str(self.score), True, WHITE)
+            # self.display.blit(text, [0, 0])
             pygame.display.flip()
 
     def count_diamonds(self):
@@ -637,7 +615,7 @@ class BoulderDash:
         self._update_ui()
 
 if __name__ == '__main__':
-    game = BoulderDash(with_ui=True, dynamic=True, with_ai=False)
+    game = BoulderDash(with_ui=False, dynamic=True, with_ai=True)
     game.init_game()
 
     # game loop

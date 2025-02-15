@@ -7,8 +7,8 @@ import copy
 from Helper import get_state, preprocess_data, input_shape
 
 data_per_level = 500  # Unique samples per level
-final_reward = -200
-penalization = 200
+final_reward = -10
+penalization = 10
 
 def find_plan(game, subgoal):
     """Find a plan from the current state to the given subgoal."""
@@ -84,20 +84,25 @@ def collect_samples(game):
         # print("Ache um plano")
 
         if attainable: # Se o plano existe
-            plan_length = len(plan)
+            if(subgoal == None): # Se for o subobjetivo final
+                target = game._calculate_uncertainty(((game.exit.x, game.exit.y)))
+            else:
+                target = game._calculate_uncertainty(subgoals[subgoal])
+
+            # target = len(plan)
             # print("Se o plano existe")
             execute_plan(game, plan) # Executa o plano
             # print("Execute o plano")
             next_state = get_state(game)
             if(subgoal == None): # Se for o subobjetivo final
                 # print("Se for o subobjetivo final")
-                sample = (state, (game.exit.x, game.exit.y), plan_length + final_reward, np.zeros(input_shape, dtype=int), True) # crie a amostra final
+                sample = (state, (game.exit.x, game.exit.y), target + final_reward, np.zeros(input_shape, dtype=int), True) # crie a amostra final
                 # print("crie a amostra final")
                 game.reset_game(copy.deepcopy(init_grid), init_player) # reseta o level
                 # print("reseta o level")
             else: # Se não for o subobjetivo final
                 # print("Se não for o subobjetivo final")
-                sample = (state, subgoals[subgoal], plan_length, next_state, False) # crie a amostra
+                sample = (state, subgoals[subgoal], target, next_state, False) # crie a amostra
                 # print("crie a amostra")
             dataset.append(sample)
             level_samples += 1
@@ -116,12 +121,12 @@ def collect_samples(game):
         #     break
 
     states, targets, next_states, dones = preprocess_data(dataset)
-    np.save('dataset/states-' + str(sys.argv[1]) + '.npy', np.array(states))
-    np.save('dataset/targets-' + str(sys.argv[1]) + '.npy', np.array(targets))
-    np.save('dataset/next-states-' + str(sys.argv[1]) + '.npy', np.array(next_states))
-    np.save('dataset/dones-' + str(sys.argv[1]) + '.npy', np.array(dones))
+    np.save('dataset-dynamic/states-' + str(sys.argv[1]) + '.npy', np.array(states))
+    np.save('dataset-dynamic/targets-' + str(sys.argv[1]) + '.npy', np.array(targets))
+    np.save('dataset-dynamic/next-states-' + str(sys.argv[1]) + '.npy', np.array(next_states))
+    np.save('dataset-dynamic/dones-' + str(sys.argv[1]) + '.npy', np.array(dones))
 
 if __name__ == "__main__":
-    game = Game.BoulderDash()
+    game = Game.BoulderDash(dynamic=True)
     print("Collecting samples...")
     collect_samples(game)
