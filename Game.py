@@ -273,10 +273,10 @@ class BoulderDash:
             y = random.randint(0, (self.w - BLOCK_SIZE) // BLOCK_SIZE)
             self.grid[x][y] = Tiles.BOULDER
 
-    def play_step(self):
+    def play_step(self, moved_init = False):
         game_over = False
         died = False
-        moved = False
+        moved = moved_init
 
         # 1. collect user input
         if self.with_ui:
@@ -357,17 +357,14 @@ class BoulderDash:
             else:
                 f.write(self.get_problem(subgoal))
 
-        print("Planning")
         plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
-        print("Finished Planning")
 
         i = 0
-        print("Plan: ", plan_result)
         while plan_result[i]:
             self.plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
             i += 1
-        self.plan.reverse()
         ff.free_memory(plan_result)
+        self.plan.reverse()
         return self.plan
 
     def _update_objects(self):
@@ -562,6 +559,8 @@ class BoulderDash:
                     indexGem += 1
                 elif self.grid[x][y] == Tiles.EMPTY:
                     pddl += "(terrain-empty c_" + str(x) + "_" + str(y) + ")\n    "
+                elif self.grid[x][y] == Tiles.WALL:
+                    pddl += "(terrain-wall c_" + str(x) + "_" + str(y) + ")\n    "
 
         for x in range(len(self.grid)):
             for y in range(len(self.grid[x])):
