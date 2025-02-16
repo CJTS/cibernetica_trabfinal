@@ -187,10 +187,10 @@ if __name__ == '__main__':
         num_episodes = 50
 
     num_dataset = 100_000
-    states_dataset_path = "dataset/states-*.npy"
-    targets_dataset_path = "dataset/targets-*.npy"
-    next_states_dataset_path = "dataset/next-states-*.npy"
-    dones_dataset_path = "dataset/dones-*.npy"
+    states_dataset_path = "dataset-dynamic/states-*.npy"
+    targets_dataset_path = "dataset-dynamic/targets-*.npy"
+    next_states_dataset_path = "dataset-dynamic/next-states-*.npy"
+    dones_dataset_path = "dataset-dynamic/dones-*.npy"
 
     states_file_list = sorted(glob.glob(states_dataset_path))  # Sort to maintain order
     targets_file_list = sorted(glob.glob(targets_dataset_path))  # Sort to maintain order
@@ -298,12 +298,9 @@ if __name__ == '__main__':
             target_net_state_dict[key] = policy_net_state_dict[key]
         target_net.load_state_dict(target_net_state_dict)
 
-        if epoch % 10 == 0:
-            torch.save(policy_net.state_dict(), 'dqn.pth')
-
     print('Training Complete')
     plot_durations(show_result=True)
     plt.ioff()
     plt.show()
 
-    torch.save(policy_net.state_dict(), 'dqn.pth')
+    torch.save(policy_net.state_dict(), 'dqn-uncertainty.pth')

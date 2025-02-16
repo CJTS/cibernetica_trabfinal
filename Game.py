@@ -43,6 +43,7 @@ BLACK = (0,0,0)
 GEM = (237, 48, 207)
 DIRT = (103, 60, 14)
 BOULDER = (158, 155, 149)
+WALL = (147, 124, 93)
 EXIT = (0, 155, 0)
 
 BLOCK_SIZE = 50
@@ -313,26 +314,8 @@ class BoulderDash:
                 elif action == "USE-RIGHT":
                     self._use()
             else:
-                self.plan = []
-                with open("problem.pddl", "w") as f:
-                    diamondRandomIndex = self.choose_subgoal()
-                    print('Going to ', diamondRandomIndex)
-                    if(diamondRandomIndex == None):
-                        f.write(self.get_problem_exit())
-                    else:
-                        f.write(self.get_problem(diamondRandomIndex))
-
-                print("Planning")
-                plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
-                print("Finished Planning")
-
-                i = 0
-                print("Plan: ", plan_result)
-                while plan_result[i]:
-                    self.plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
-                    i += 1
-                self.plan.reverse()
-                ff.free_memory(plan_result)
+                diamondRandomIndex = self.choose_subgoal()
+                self.create_plan(diamondRandomIndex)
 
         # 3. update boulders and gems
         if self.dynamic and moved:
@@ -353,6 +336,27 @@ class BoulderDash:
 
         # time.sleep(.5)
         return game_over, died, self.score
+
+    def create_plan(self, subgoal):
+        self.plan = []
+        with open("problem.pddl", "w") as f:
+            if(subgoal == None):
+                f.write(self.get_problem_exit())
+            else:
+                f.write(self.get_problem(subgoal))
+
+        print("Planning")
+        plan_result = ff.plan((ctypes.c_char_p * 7)(b"ff", b"-f", b"./problem.pddl", b"-o", b"./domain.pddl", b"-i", b"0"))
+        print("Finished Planning")
+
+        i = 0
+        print("Plan: ", plan_result)
+        while plan_result[i]:
+            self.plan.append(plan_result[i].decode('utf-8'))  # Decode the C string to Python string
+            i += 1
+        self.plan.reverse()
+        ff.free_memory(plan_result)
+        return self.plan
 
     def _update_objects(self):
         change = True
@@ -394,7 +398,7 @@ class BoulderDash:
             return True
 
         tile = self.grid[newPlayer.x][newPlayer.y]
-        if tile == Tiles.BOULDER:
+        if tile == Tiles.BOULDER or tile == Tiles.WALL:
             return True
 
     def can_push_boulder(self, newPlayer, direction):
@@ -466,6 +470,8 @@ class BoulderDash:
                         pygame.draw.rect(self.display, DIRT, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
                     elif self.grid[x][y] == Tiles.BOULDER:
                         pygame.draw.rect(self.display, BOULDER, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                    elif self.grid[x][y] == Tiles.WALL:
+                        pygame.draw.rect(self.display, WALL, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
                     elif self.grid[x][y] == Tiles.GEM:
                         pygame.draw.rect(self.display, GEM, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
                         # font = pygame.font.Font('arial.ttf', 16)
