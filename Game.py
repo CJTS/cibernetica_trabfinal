@@ -35,8 +35,8 @@ class Tiles(Enum):
 
 Point = namedtuple('Point', 'x, y')
 
+PLAYER = None
 WHITE = (255, 255, 255)
-PLAYER = (200,0,0)
 BLUE1 = (0, 0, 255)
 BLUE2 = (0, 100, 255)
 BLACK = (0,0,0)
@@ -46,7 +46,7 @@ BOULDER = (158, 155, 149)
 WALL = (147, 124, 93)
 EXIT = (0, 155, 0)
 
-BLOCK_SIZE = 50
+BLOCK_SIZE = 24
 DIRT_NUM = 800
 GEMS_NUM = 23
 BOULDER_NUM = 50
@@ -57,6 +57,12 @@ MAX_STEPS = 6
 
 class BoulderDash:
     def __init__(self, with_ui = False, dynamic = False, with_ai = False, w = GRID_WIDTH * BLOCK_SIZE, h = GRID_HEIGHT * BLOCK_SIZE):
+        global PLAYER
+        global EXIT
+        global DIRT
+        global GEM
+        global BOULDER
+        global WALL
         self.w = w
         self.h = h
         # init display
@@ -67,6 +73,12 @@ class BoulderDash:
             pygame.init()
             self.display = pygame.display.set_mode((self.w, self.h))
             pygame.display.set_caption('Boulderdash')
+            PLAYER = pygame.image.load("./sprites/spelunky_0.png").convert()
+            EXIT = pygame.image.load("./sprites/door2.png").convert()
+            DIRT = pygame.image.load("./sprites/backLBrown.png").convert()
+            GEM = pygame.image.load("./sprites/diamond3.png").convert()
+            BOULDER = pygame.image.load("./sprites/mineral1.png").convert()
+            WALL = pygame.image.load("./sprites/dirtWall_0.png").convert()
 
     def init_game(self):
         if self.with_ui:
@@ -460,20 +472,21 @@ class BoulderDash:
         gemindex = 0
         if self.with_ui:
             self.display.fill(BLACK)
-
-            pygame.draw.rect(self.display, PLAYER, pygame.Rect(self.player.y  * BLOCK_SIZE, self.player.x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
-            pygame.draw.rect(self.display, EXIT, pygame.Rect(self.exit.y  * BLOCK_SIZE, self.exit.x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+            self.display.blit(PLAYER, (self.player.y * BLOCK_SIZE, self.player.x * BLOCK_SIZE))
+            self.display.blit(EXIT, (self.exit.y * BLOCK_SIZE, self.exit.x * BLOCK_SIZE))
+            # pygame.draw.rect(self.display, PLAYER, pygame.Rect(self.player.y  * BLOCK_SIZE, self.player.x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+            # pygame.draw.rect(self.display, EXIT, pygame.Rect(self.exit.y  * BLOCK_SIZE, self.exit.x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
 
             for x in range(len(self.grid)):
                 for y in range(len(self.grid[x])):
                     if self.grid[x][y] == Tiles.DIRT:
-                        pygame.draw.rect(self.display, DIRT, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                        self.display.blit(DIRT, (y * BLOCK_SIZE, x * BLOCK_SIZE))
                     elif self.grid[x][y] == Tiles.BOULDER:
-                        pygame.draw.rect(self.display, BOULDER, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                        self.display.blit(BOULDER, ((BOULDER.get_width() / 4) + (y * BLOCK_SIZE), (BOULDER.get_height() / 4) + x * BLOCK_SIZE))
                     elif self.grid[x][y] == Tiles.WALL:
-                        pygame.draw.rect(self.display, WALL, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                        self.display.blit(WALL, (y * BLOCK_SIZE, x * BLOCK_SIZE))
                     elif self.grid[x][y] == Tiles.GEM:
-                        pygame.draw.rect(self.display, GEM, pygame.Rect(y * BLOCK_SIZE, x * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                        self.display.blit(GEM, ((GEM.get_width() / 4) + (y * BLOCK_SIZE), (GEM.get_height() / 4) + x * BLOCK_SIZE))
                         # font = pygame.font.Font('arial.ttf', 16)
                         # text = font.render(str(gemindex), True, WHITE)
                         # self.display.blit(text, [y * BLOCK_SIZE, x * BLOCK_SIZE])
