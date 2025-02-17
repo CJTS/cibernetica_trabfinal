@@ -11,6 +11,7 @@ import time
 import random
 import matplotlib
 import matplotlib.pyplot as plt
+import statistics
 
 # set up matplotlib
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -126,6 +127,7 @@ def plot_durations(title, attr, episode_durations):
 
 if __name__ == '__main__':
     game = Game.BoulderDash()
+    # exec(game, 'static','RM')
 
     data = {
         "static": {
@@ -171,22 +173,21 @@ if __name__ == '__main__':
     }
 
     for dynamic in ["static", "dynamic"]:
-        print(dynamic)
         for mode in ['RM', 'DQP', 'DPQU']:
-            print(mode)
             for i in range(30):
-                print(i)
                 died, score, total_plan, elapsed_time = exec(game, dynamic, mode)
                 data[dynamic][mode]["died"].append(died)
                 data[dynamic][mode]["score"].append(score)
                 data[dynamic][mode]["total_plan"].append(total_plan)
                 data[dynamic][mode]["elapsed_time"].append(elapsed_time)
 
-    for dynamic in ["static", "dynamic"]:
-        for mode in ['RM', 'DQP', 'DPQU']:
-            for attr in ['died', 'score', 'total_plan', 'elapsed_time']:
-                plot_durations(f"Resultado {mode} {dynamic} {attr}", attr, data[dynamic][mode][attr])
-                plt.ioff()
-                plt.show()
+    # for dynamic in ["static", "dynamic"]:
+    #     for mode in ['RM', 'DQP', 'DPQU']:
+    #         for attr in ['died', 'score', 'total_plan', 'elapsed_time']:
+    #             plot_durations(f"Resultado {mode} {dynamic} {attr}", attr, data[dynamic][mode][attr])
+    #             plt.ioff()
+    #             plt.show()
+
+    print(data)
 
     pygame.quit()
