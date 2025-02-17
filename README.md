@@ -32,10 +32,14 @@ flex 2.6.4
 
 ### Env Mac
 
+```
 python -m venv venv
 source ./venv/bin/activate
 pip install -r requirements.txt
+```
 
 ## Fast Forward Planner
 
+```
 ./FF-v2.3/ff -f ./problem1.pddl -o ./domain.pddl -i 0
+```
